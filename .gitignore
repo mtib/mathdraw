@@ -1,6 +1,11 @@
+## User Added Ignores
+images/
+plotting/
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
-*.py[cod]
+*.py[codxz]
 
 # C extensions
 *.so
