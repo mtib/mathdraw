@@ -18,6 +18,7 @@ import time
 import threading
 import os, subprocess, sys # Using ps2pdf
 import time # Filename
+import socket
 
 r = "#BB0000"
 g = "#009900"
@@ -36,7 +37,7 @@ pos = [0, 0]
 
 sock = None
 sfile = None
-server = 'localhost'
+server = '127.0.0.1'
 try:
     server = os.environ["MATHDRAW"]
     print("Using server:", server)
@@ -44,6 +45,14 @@ except:
     print("$MATHDRAW not defined, reverting to localhost")
 
 basetitle = "MathDraw 5 - {}".format(server)
+sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+sock.connect((server, 8228))
+sfile = sock.makefile()
+
+accmsg = sfile.readline()
+if accmsg != 'accept\n':
+    print("didn't receive an accept message")
+    sys.exit(1)
 
 def main():
     import tkinter
@@ -127,7 +136,7 @@ def move():
     sp = pos[:]
     sp[0] = int(sp[0] / 1280)
     sp[1] = int(sp[1] / 720)
-    print("->", sp)
+    print("move(", sp, ")")
     space = 4
     canv.create_text(canv.canvasx(space), canv.canvasy(
         space), text=str(sp), anchor="nw", fill="#fff")
@@ -236,4 +245,10 @@ def multiPlot():
     print("printed image")
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        pass
+    sock.send(b'close')
+    sfile.close()
+    sock.close()
