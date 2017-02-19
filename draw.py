@@ -1,22 +1,24 @@
 #!/usr/bin/python3
-import tkinter
-import pgf
-import time
-import threading
-import os, subprocess, sys # Using ps2pdf
-import time # Filename
 
+"""MathDraw - a virtual whiteboard
+
+with batteries included.
+"""
 # Controls:
-#lmb        =paint
-#rmb        =erase
+# lmb        =paint
+# rmb        =erase
 # mmb        =cycle colors
 # arrow keys =move canvas
 # t          =text input
 # return     =finish text input
 # double lmb =cycle colors
 
-root = tkinter.Tk()
-canv = tkinter.Canvas(root, width=1280, height=720, background="#fff")
+import pgf
+import time
+import threading
+import os, subprocess, sys # Using ps2pdf
+import time # Filename
+
 r = "#BB0000"
 g = "#009900"
 b = "#0000BB"
@@ -32,8 +34,45 @@ useLast = False
 last = [0, 0]
 pos = [0, 0]
 
-basetitle = "MathDrawPy 5"
+sock = None
+sfile = None
+server = 'localhost'
+try:
+    server = os.environ["MATHDRAW"]
+    print("Using server:", server)
+except:
+    print("$MATHDRAW not defined, reverting to localhost")
 
+basetitle = "MathDraw 5 - {}".format(server)
+
+def main():
+    import tkinter
+    global root
+    global canv
+    root = tkinter.Tk()
+    root.title(basetitle)
+    canv = tkinter.Canvas(root, width=1280, height=720, background="#fff")
+    canv.pack()
+    canv.bind("<Button-1>", paint)
+    canv.bind("<B1-Motion>", paint)
+    canv.bind("c", cycle)
+    canv.bind("<Button-2>", cycle)
+    canv.bind("<ButtonRelease-1>", release)
+    canv.bind("<Leave>", release)
+    canv.bind("<B3-Motion>", erase)
+    root.bind("<Left>", mleft)
+    root.bind("<Right>", mright)
+    root.bind("<Up>", mup)
+    root.bind("<Down>", mdown)
+    root.bind("t", write)
+    root.bind("T", cmdInput)
+    root.bind("<Return>", enter)
+    root.bind("<Key>", listenT)
+    root.bind("<BackSpace>", removeT)
+    root.bind("D", plotting)
+    root.bind("C", exportPdf)
+    move()
+    tkinter.mainloop()
 
 def paint(event):
     global useLast
@@ -88,7 +127,7 @@ def move():
     sp = pos[:]
     sp[0] = int(sp[0] / 1280)
     sp[1] = int(sp[1] / 720)
-    print(sp)
+    print("->", sp)
     space = 4
     canv.create_text(canv.canvasx(space), canv.canvasy(
         space), text=str(sp), anchor="nw", fill="#fff")
@@ -112,8 +151,7 @@ def write(event):
     global listenedText
     global textpos
     if listenToText:
-        listenedText += "t"
-        print(listenedText)
+        listenT(event)
         return
     listenToText = True
     textpos[0] = event.x
@@ -133,27 +171,32 @@ def writeOut():
     canv.create_text(canv.canvasx(textpos[0]), canv.canvasy(
         textpos[1]), text=listenedText, font="Consolas 18 bold")
     listenedText = ""
-    print("Text written")
+    print("\nText written")
 
 
 def listenT(event):
     global listenedText
     listenedText += event.char
-    print(listenedText)
+    if listenToText:
+        print("\033[1024D", end="")
+        print(listenedText, end="")
+        sys.stdout.flush()
+    else:
+        listenedText = ""
 
 
 def removeT(event):
     global listenedText
     listenedText = listenedText[:-1]
-    print(listenedText)
+    print("\033[1D \033[1D", end="")
+    sys.stdout.flush()
 
 
 def cmdInput(event):
     global listenToText
     global listenedText
     if listenToText:
-        listenedText += "T"
-        print(listenedText)
+        listenT(event)
         return
     t = str(input("Text:"))
     canv.create_text(canv.canvasx(event.x), canv.canvasy(
@@ -192,28 +235,5 @@ def multiPlot():
     canv.create_image(canv.canvasx(0), canv.canvasy(720), anchor="sw", image=p)
     print("printed image")
 
-
-root.title(basetitle)
-canv.pack()
-canv.bind("<Button-1>", paint)
-canv.bind("<B1-Motion>", paint)
-canv.bind("c", cycle)
-canv.bind("<Button-2>", cycle)
-canv.bind("<ButtonRelease-1>", release)
-canv.bind("<Leave>", release)
-canv.bind("<B3-Motion>", erase)
-root.bind("<Left>", mleft)
-root.bind("<Right>", mright)
-root.bind("<Up>", mup)
-root.bind("<Down>", mdown)
-root.bind("t", write)
-root.bind("T", cmdInput)
-root.bind("<Return>", enter)
-root.bind("<Key>", listenT)
-root.bind("<BackSpace>", removeT)
-root.bind("D", plotting)
-root.bind("C", exportPdf)
-
-move()
-
-tkinter.mainloop()
+if __name__ == '__main__':
+    main()
