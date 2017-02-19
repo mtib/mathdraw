@@ -1,5 +1,7 @@
 # mathdraw
 
+[![Build Status](https://travis-ci.org/mtib/mathdraw.svg?branch=master)](https://travis-ci.org/mtib/mathdraw)
+
 ```
 #TODO short description
 ```
