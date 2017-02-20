@@ -1,4 +1,4 @@
-build: draw.py pgf.py
+build: draw.py server.py
 	rm -rf build dist *.spec || :;
 	cxfreeze draw.py --target-dir=dist/draw
 	cxfreeze server.py --target-dir=dist/serve
