@@ -10,10 +10,10 @@ with batteries included.
 # mmb        =cycle colors
 # arrow keys =move canvas
 # t          =text input
+# T          =cli input
 # return     =finish text input
 # double lmb =cycle colors
 
-import pgf
 import time
 import threading
 import os, subprocess, sys # Using ps2pdf
@@ -259,15 +259,7 @@ def plotting(event):
 
 
 def multiPlot():
-    pgf.demow()
-    print("finished generating")
-    time.sleep(.5)
-    print("printing image")
-    global canv
-    global p
-    p = tkinter.PhotoImage(file="./plotting/plot_r.png")
-    canv.create_image(canv.canvasx(0), canv.canvasy(720), anchor="sw", image=p)
-    print("printed image")
+    print("plotting not implemented")
 
 def sock_receive():
     try:
