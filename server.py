@@ -21,7 +21,7 @@ class MathServer():
         offset = 0
         while True:
             try:
-                self.sock.bind((socket.gethostname(), 8228 + offset))
+                self.sock.bind(('', 8228 + offset))
                 break
             except Exception as e:
                 print("could not open port {}, trying {} next".format(8228+offset, 8228+offset+1))
