@@ -19,6 +19,7 @@ import threading
 import os, subprocess, sys # Using ps2pdf
 import time # Filename
 import socket
+from threading import Thread
 
 r = "#BB0000"
 g = "#009900"
@@ -46,7 +47,12 @@ except:
 
 basetitle = "MathDraw 5 - {}".format(server)
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-sock.connect((server, 8228))
+for i in range(101):
+    try:
+        sock.connect((server, 8228+i))
+        break
+    except:
+        continue
 sfile = sock.makefile()
 
 accmsg = sfile.readline()
@@ -85,16 +91,21 @@ def main():
 
 def paint(event):
     global useLast
-    x = canv.canvasx(event.x)
-    y = canv.canvasy(event.y)
+    x = int(canv.canvasx(event.x))
+    y = int(canv.canvasy(event.y))
     if useLast:
-        canv.create_line(last[0], last[1], x, y, fill=color[num % 3], width=3)
+        _paint(last[0], last[1], x, y, num % 3)
+        sock.send('d:{:}:{:}:{:}:{:}:{}\n'.format(last[0], last[1], x, y, num % 3).encode('ascii'))
     else:
         pass
         #canv.create_oval(event.x-1,event.y-1,event.x+1,event.y+1, fill=color[num%3])
     last[0] = x
     last[1] = y
     useLast = True
+
+def _paint(x1, y1, x2, y2, n):
+    canv.create_line(x1, y1, x2, y2, fill=color[n], width=3)
+
 
 
 def cycle(event):
@@ -149,11 +160,14 @@ def move():
 
 
 def erase(event):
-    s = 20
-    x = canv.canvasx(event.x)
-    y = canv.canvasy(event.y)
-    canv.create_oval(x - s, y - s, x + s, y + s, fill="white", outline="white")
+    x = int(canv.canvasx(event.x))
+    y = int(canv.canvasy(event.y))
+    sock.send('e:{}:{}\n'.format(x,y).encode('ascii'))
+    _erase(x, y)
 
+def _erase(x, y):
+    s = 20
+    canv.create_oval(x - s, y - s, x + s, y + s, fill="white", outline="white")
 
 def write(event):
     global listenToText
@@ -177,10 +191,15 @@ def enter(event):
 
 def writeOut():
     global listenedText
-    canv.create_text(canv.canvasx(textpos[0]), canv.canvasy(
-        textpos[1]), text=listenedText, font="Consolas 18 bold")
+    x = int(canv.canvasx(textpos[0]))
+    y = int(canv.canvasy(textpos[1]))
+    _writeOut(x, y, listenedText)
+    sock.send('t:{}:{}:{}\n'.format(x, y, listenedText).encode('ascii'))
     listenedText = ""
     print("\nText written")
+
+def _writeOut(x, y, t):
+    canv.create_text(x, y, text=t, font="Consolas 18 bold")
 
 
 def listenT(event):
@@ -208,8 +227,10 @@ def cmdInput(event):
         listenT(event)
         return
     t = str(input("Text:"))
-    canv.create_text(canv.canvasx(event.x), canv.canvasy(
-        event.y), text=t, font="Consolas 18 bold")
+    x = int(canv.canvasx(event.x))
+    y = int(canv.canvasy(event.y))
+    sock.send('t:{}:{}:{}\n'.format(x, y, t).encode('ascii'))
+    _writeOut(x, y, t)
 tr = False
 
 def exportPdf(event):
@@ -244,11 +265,32 @@ def multiPlot():
     canv.create_image(canv.canvasx(0), canv.canvasy(720), anchor="sw", image=p)
     print("printed image")
 
+def sock_receive():
+    try:
+        while True:
+            msg = sfile.readline()[:-1]
+            print(msg)
+            mspl = msg.split(":")
+            if msg[0] == 'e':
+                #e:x:y
+                _erase(int(mspl[1]), int(mspl[2]))
+            elif msg[0] == 'd':
+                #d:x1:y1:x2:y2:num
+                _paint(int(mspl[1]), int(mspl[2]), int(mspl[3]), int(mspl[4]), int(mspl[5]))
+            elif msg[0] == 't':
+                #t:x:y:text
+                _writeOut(int(mspl[1]), int(mspl[2]), mspl[3])
+    except:
+        return
+
 if __name__ == '__main__':
+    Thread(target=sock_receive).start()
     try:
         main()
     except KeyboardInterrupt:
         pass
-    sock.send(b'close')
+    except:
+        pass
+    sock.send(b'close\n')
     sfile.close()
     sock.close()

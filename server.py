@@ -17,13 +17,16 @@ class MathServer():
 
     def __init__(self):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        offset = 0
         while True:
             try:
-                self.sock.bind((socket.gethostname(), 8228))
+                self.sock.bind((socket.gethostname(), 8228 + offset))
                 break
             except Exception as e:
-                print("waiting for port 8228 to free (wait 5s)")
-                time.sleep(5)
+                print("could not open port {}, trying {} next".format(8228+offset, 8228+offset+1))
+            offset = offset + 1
+            if offset > 100:
+                raise(Exception())
         self.sock.listen(3)
 
 
@@ -36,12 +39,12 @@ class MathServer():
         while True:
             msg = 'close'
             try:
-                msg = self.sfile[addr].readline()
+                msg = self.sfile[addr].readline()[:-1]
             except ConnectionResetError:
                 msg = 'close'
             if len(msg) == 0:
                 print("newline received")
-                continue
+                msg = 'close'
             if msg == 'close':
                 conn.close()
                 self.sfile[addr].close()
@@ -50,11 +53,21 @@ class MathServer():
                 print(" -/-> tcp & file {}".format(addr))
                 return
             elif msg[0] == 'd':
-                print("draw command")
+                print("draw:", msg.split(":"))
+                self._mirror(msg, conn)
             elif msg[0] == 'e':
-                print("erase command")
+                print("erase:", msg.split(":"))
+                self._mirror(msg, conn)
+            elif msg[0] == 't':
+                print("text:", msg.split(":"))
+                self._mirror(msg, conn)
             else:
-                print("unknown command by {}".format(addr))
+                print("unknown command \"{}\" by {}".format(msg, addr))
+
+    def _mirror(self, msg, conn):
+        for c in self.cons:
+            if c[0] != conn:
+                c[0].send('{}\n'.format(msg).encode('ascii'))
 
     def start(self):
         print("starting server")
