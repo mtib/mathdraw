@@ -69,7 +69,7 @@ def main():
     import tkinter
     global root
     global canv
-    root = tkinter.Tk()
+    root = tkinter.Tk(className="mathdraw")
     root.title(basetitle)
     canv = tkinter.Canvas(root, width=1280, height=720, background="#fff")
     canv.pack()
@@ -90,7 +90,6 @@ def main():
     root.bind("<Key>", listenT)
     root.bind("<BackSpace>", removeT)
     root.bind("D", plotting)
-    root.bind("C", exportPdf)
     move()
     tkinter.mainloop()
 
@@ -100,16 +99,16 @@ def paint(event):
     y = int(canv.canvasy(event.y))
     if useLast:
         _paint(last[0], last[1], x, y, num % 3)
-        sock.send('d:{:}:{:}:{:}:{:}:{}\n'.format(last[0], last[1], x, y, num % 3).encode('ascii'))
+        sock.send('d:{}:{}:{}:{}:{}\n'.format(last[0], last[1], x, y, num % 3).encode('ascii'))
     else:
         pass
-        #canv.create_oval(event.x-1,event.y-1,event.x+1,event.y+1, fill=color[num%3])
     last[0] = x
     last[1] = y
     useLast = True
 
 def _paint(x1, y1, x2, y2, n):
     canv.create_line(x1, y1, x2, y2, fill=color[n], width=3)
+    canv.create_oval(x1-1,y1-1,x1+1,y1+1, fill=color[num % 3], width=0)
 
 
 
@@ -147,21 +146,14 @@ def mdown(event):
     pos[1] += 720
     move()
 
+def _change(wx, wy):
+    space = 4
+    pos = "[{}, {}]".format(wx, wy)
+    canv.create_rectangle(canv.canvasx(0), canv.canvasy(0), canv.canvasx(6 * len(pos) + 8), canv.canvasy(20), fill="#FFF", width=0)
+    canv.create_text(canv.canvasx(space), canv.canvasy(space), text=pos, anchor="nw", fill="#000")
 
 def move():
-    sp = pos[:]
-    sp[0] = int(sp[0] / 1280)
-    sp[1] = int(sp[1] / 720)
-    print("move(", sp, ")")
-    space = 4
-    canv.create_rectangle(canv.canvasx(0), canv.canvasy(0), canv.canvasx(6 * len(str(sp)) + 8), canv.canvasy(20), fill="#FFF", width=0)
-    canv.create_text(canv.canvasx(space), canv.canvasy(space), text=str(sp), anchor="nw", fill="#000")
-    ## Plotting Area:
-    # canv.create_line(canv.canvasx(400), canv.canvasy(
-    #     720), canv.canvasx(400), canv.canvasy(720 - 260), fill="#ddd")
-    # canv.create_line(canv.canvasx(0), canv.canvasy(720 - 260),
-    #                  canv.canvasx(400), canv.canvasy(720 - 260), fill="#ddd")
-
+    _change(int(pos[0]/1280), int(pos[1]/720))
 
 def erase(event):
     x = int(canv.canvasx(event.x))
@@ -203,7 +195,7 @@ def writeOut():
     print("\nText written")
 
 def _writeOut(x, y, t):
-    canv.create_text(x, y, text=t, font="Consolas 18 bold")
+    canv.create_text(x, y, text=t, font="\"Times New Roman\" 18 bold")
 
 
 def listenT(event):
@@ -235,30 +227,8 @@ def cmdInput(event):
     y = int(canv.canvasy(event.y))
     sock.send('t:{}:{}:{}\n'.format(x, y, t).encode('ascii'))
     _writeOut(x, y, t)
-tr = False
-
-def exportPdf(event):
-    canv.postscript(file=filedir+"tmp.ps",colormode="color")
-    try:
-        os.mkdir(filedir+"images")
-    except FileExistsError:
-        pass
-    os.system("convert \""+filedir+"tmp.ps\" \""+filedir+"images/{:x}.jpg\"".format(int(time.time())))
-    os.system("rm \""+filedir+"tmp.ps\"")
 
 def plotting(event):
-    global listenToText
-    global listenedText
-    global tr
-    if listenToText:
-        listenedText += "D"
-        print(listenedText)
-        return
-    mp = threading.Thread(target=multiPlot)
-    mp.start()
-
-
-def multiPlot():
     print("plotting not implemented")
 
 def sock_receive():

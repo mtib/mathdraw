@@ -38,3 +38,4 @@ Things that would improve this application:
 - following mechanic (for changing workspace)
 - variable resolution
 - variable aspect ratio
+- optimize netcode (non ascii)
