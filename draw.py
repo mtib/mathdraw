@@ -38,18 +38,23 @@ pos = [0, 0]
 
 sock = None
 sfile = None
-server = '127.0.0.1'
+ms = None
+serv = None
+host = socket.gethostname()
 try:
-    server = os.environ["MATHDRAW"]
-    print("Using server:", server)
+    host = os.environ["MATHDRAW"]
 except:
-    print("$MATHDRAW not defined, reverting to localhost")
+    import server
+    ms = server.MathServer()
+    serv = Thread(target=ms.start, daemon=True)
+    serv.start()
 
-basetitle = "MathDraw 5 - {}".format(server)
+print("Using server:", host)
+basetitle = "MathDraw 5 - {}".format(host)
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 for i in range(101):
     try:
-        sock.connect((server, 8228+i))
+        sock.connect((host, 8228+i))
         break
     except:
         continue
@@ -120,25 +125,25 @@ def release(event):
 
 
 def mleft(event):
-    canv.xview_scroll(-1280, "unit")
+    canv.xview_scroll(-2, "pages")
     pos[0] -= 1280
     move()
 
 
 def mright(event):
-    canv.xview_scroll(1280, "unit")
+    canv.xview_scroll(2, "pages")
     pos[0] += 1280
     move()
 
 
 def mup(event):
-    canv.yview_scroll(-720, "unit")
+    canv.yview_scroll(-2, "pages")
     pos[1] -= 720
     move()
 
 
 def mdown(event):
-    canv.yview_scroll(720, "unit")
+    canv.yview_scroll(2, "pages")
     pos[1] += 720
     move()
 
@@ -149,14 +154,13 @@ def move():
     sp[1] = int(sp[1] / 720)
     print("move(", sp, ")")
     space = 4
-    canv.create_text(canv.canvasx(space), canv.canvasy(
-        space), text=str(sp), anchor="nw", fill="#fff")
-    canv.create_text(canv.canvasx(space), canv.canvasy(
-        space), text=str(sp), anchor="nw", fill="#333")
-    canv.create_line(canv.canvasx(400), canv.canvasy(
-        720), canv.canvasx(400), canv.canvasy(720 - 260), fill="#ddd")
-    canv.create_line(canv.canvasx(0), canv.canvasy(720 - 260),
-                     canv.canvasx(400), canv.canvasy(720 - 260), fill="#ddd")
+    canv.create_rectangle(canv.canvasx(0), canv.canvasy(0), canv.canvasx(6 * len(str(sp)) + 8), canv.canvasy(20), fill="#FFF", width=0)
+    canv.create_text(canv.canvasx(space), canv.canvasy(space), text=str(sp), anchor="nw", fill="#000")
+    ## Plotting Area:
+    # canv.create_line(canv.canvasx(400), canv.canvasy(
+    #     720), canv.canvasx(400), canv.canvasy(720 - 260), fill="#ddd")
+    # canv.create_line(canv.canvasx(0), canv.canvasy(720 - 260),
+    #                  canv.canvasx(400), canv.canvasy(720 - 260), fill="#ddd")
 
 
 def erase(event):
@@ -269,7 +273,6 @@ def sock_receive():
     try:
         while True:
             msg = sfile.readline()[:-1]
-            print(msg)
             mspl = msg.split(":")
             if msg[0] == 'e':
                 #e:x:y
@@ -280,7 +283,10 @@ def sock_receive():
             elif msg[0] == 't':
                 #t:x:y:text
                 _writeOut(int(mspl[1]), int(mspl[2]), mspl[3])
+            else:
+                print("unknown server response")
     except:
+        print("return client receive")
         return
 
 if __name__ == '__main__':
@@ -292,5 +298,6 @@ if __name__ == '__main__':
     except:
         pass
     sock.send(b'close\n')
-    sfile.close()
-    sock.close()
+    if ms != None:
+        ms.close()
+    sys.exit(0)

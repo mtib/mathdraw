@@ -16,6 +16,7 @@ class MathServer():
     cons = []
 
     def __init__(self):
+        self.running = True
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         offset = 0
         while True:
@@ -36,7 +37,7 @@ class MathServer():
         self.cons.append((conn, addr))
         conn.send(b'accept\n')
         print(" <- accepted connection for {}".format(addr))
-        while True:
+        while self.running:
             msg = 'close'
             try:
                 msg = self.sfile[addr].readline()[:-1]
@@ -71,12 +72,13 @@ class MathServer():
 
     def start(self):
         print("starting server")
-        while True:
+        while self.running:
             c, a = self.sock.accept()
             print(" -> connection: {}".format(a))
             Thread(target=self._accept, args=[c, a]).start()
 
     def close(self):
+        self.running = False
         for i in self.sfile:
             print(" -/-> file {}".format(i))
             self.sfile[i].close()
