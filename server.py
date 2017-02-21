@@ -7,8 +7,12 @@ should be hosted on $MATHDRAW so the client connects properly
 
 import socket
 import os
+import sys
 import time
 from threading import Thread
+
+PORT = 8228
+MAX_OFFSET = 100
 
 class MathServer():
     sfile = dict()
@@ -16,19 +20,24 @@ class MathServer():
     cons = []
 
     def __init__(self):
+        self.debug = "-v" in sys.argv
         self.running = True
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         offset = 0
         while True:
             try:
-                self.sock.bind(('', 8228 + offset))
+                self.sock.bind(('', PORT + offset))
                 break
             except Exception as e:
-                print("could not open port {}, trying {} next".format(8228+offset, 8228+offset+1))
+                print("could not open port {}, trying {} next".format(PORT+offset, PORT+offset+1))
             offset = offset + 1
-            if offset > 100:
+            if offset > MAX_OFFSET:
                 raise(Exception())
         self.sock.listen(3)
+
+    def _debug(self, *st):
+        if self.debug:
+            print(*st)
 
 
     def _accept(self, conn, addr):
@@ -44,7 +53,7 @@ class MathServer():
             except ConnectionResetError:
                 msg = 'close'
             if len(msg) == 0:
-                print("newline received")
+                self._debug("newline received")
                 msg = 'close'
             if msg == 'close':
                 conn.close()
@@ -54,16 +63,18 @@ class MathServer():
                 print(" -/-> tcp & file {}".format(addr))
                 return
             elif msg[0] == 'd':
-                print("draw:", msg.split(":"))
+                self._debug("draw:", msg.split(":"))
                 self._mirror(msg, conn)
             elif msg[0] == 'e':
-                print("erase:", msg.split(":"))
+                self._debug("erase:", msg.split(":"))
                 self._mirror(msg, conn)
             elif msg[0] == 't':
-                print("text:", msg.split(":"))
+                self._debug("text:", msg.split(":"))
                 self._mirror(msg, conn)
+            elif msg[0] == 'c':
+                self._debug("change:", msg.split(":"))
             else:
-                print("unknown command \"{}\" by {}".format(msg, addr))
+                self._debug("unknown command \"{}\" by {}".format(msg, addr))
 
     def _mirror(self, msg, conn):
         for c in self.cons:
