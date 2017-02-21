@@ -23,13 +23,18 @@ import tkinter
 from threading import Thread
 from server import PORT, MAX_OFFSET
 
+WIDTH = 1280
+HEIGHT = 720
+
 class MathClient():
 
+    black = "#050505"
     red = "#BB0000"
     green = "#009900"
     blue = "#0000BB"
     num = 0
-    color = [red, green, blue]
+    color = [black, red, green, blue]
+    colorName = ["black", "red", "green", "blue"]
 
     def __init__(self):
         self.host = socket.gethostname()
@@ -79,10 +84,10 @@ class MathClient():
     def _tkinter(self):
         self.tk = tkinter.Tk(className="mathdraw")
         self.tk.title(self.title)
-        self.tk.bind("<Left>",      self.mleft)
-        self.tk.bind("<Right>",     self.mright)
-        self.tk.bind("<Up>",        self.mup)
-        self.tk.bind("<Down>",      self.mdown)
+        self.tk.bind("<Left>",      lambda e: self._scroll('left'))
+        self.tk.bind("<Right>",     lambda e: self._scroll('right'))
+        self.tk.bind("<Up>",        lambda e: self._scroll('up'))
+        self.tk.bind("<Down>",      lambda e: self._scroll('down'))
         self.tk.bind("t",           self.write)
         self.tk.bind("f",           self.followToggle)
         self.tk.bind("T",           self.cmdInput)
@@ -91,7 +96,7 @@ class MathClient():
         self.tk.bind("<BackSpace>", self.removeT)
         # self.tk.bind("D", self.plotting)
 
-        self.canv = tkinter.Canvas(self.tk, width=1280, height=720, background="#fff")
+        self.canv = tkinter.Canvas(self.tk, width=WIDTH, height=HEIGHT, background="#fff")
         self.canv.pack()
         self.canv.bind("<Button-1>",        self.paint)
         self.canv.bind("<B1-Motion>",       self.paint)
@@ -112,6 +117,9 @@ class MathClient():
         return int(self.canv.canvasy(y))
 
     def followToggle(self, event):
+        if self.listen:
+            self.listenT(event)
+            return
         self.follow = not self.follow
         self._update()
 
@@ -121,8 +129,8 @@ class MathClient():
         lx = self.last[0]
         ly = self.last[1]
         if self.useLast:
-            self._paint(lx, ly, x, y, self.num % 3)
-            self.sock.send('d:{}:{}:{}:{}:{}\n'.format(lx, ly, x, y, self.num % 3).encode('ascii'))
+            self._paint(lx, ly, x, y, self.num % len(self.color))
+            self.sock.send('d:{}:{}:{}:{}:{}\n'.format(lx, ly, x, y, self.num % len(self.color)).encode('ascii'))
         else:
             self.useLast = True
         self.last[0] = x
@@ -130,12 +138,13 @@ class MathClient():
 
     def _paint(self, x1, y1, x2, y2, n):
         c = self.color[n]
-        self.canv.create_line(x1, y1, x2, y2, fill=c, width=3)
+        self.canv.create_line(x1, y1, x2, y2, fill=c, width=2)
         self.canv.create_oval(x1-1,y1-1,x1+1,y1+1, fill=c, width=0)
 
     def cycle(self, event):
         self.num = (self.num + 1) % len(self.color)
-        root.title(self.title + " " + self.color[self.num])
+        self.tk.title(self.title + " " + self.color[self.num])
+        self._update()
 
 
     def release(self, event):
@@ -163,16 +172,16 @@ class MathClient():
         dy = 0
         if direction == 0 or direction == 'up':
             self.canv.yview_scroll(-dist, "pages")
-            dy = -720
+            dy = -HEIGHT
         elif direction == 1 or direction == 'right':
             self.canv.xview_scroll( dist, "pages")
-            dx = 1280
+            dx = WIDTH
         elif direction == 2 or direction == 'down':
             self.canv.yview_scroll( dist, "pages")
-            dy = 720
+            dy = HEIGHT
         elif direction == 3 or direction == 'left':
             self.canv.xview_scroll(-dist, "pages")
-            dx = -1280
+            dx = -WIDTH
         self.pos[0] += dx
         self.pos[1] -= dy
         self._update()
@@ -188,10 +197,12 @@ class MathClient():
 
     def _update(self):
         space = 4
-        self._change(int(self.pos[0]/1280), int(self.pos[1]/720), space)
+        self._change(int(self.pos[0]/WIDTH), int(self.pos[1]/HEIGHT), space)
         self._blockErase(0, 20, 40, 20)
+        self.canv.create_text(self._cx(space), self._cy(space+20), text=self.colorName[self.num], anchor="nw", fill=self.color[self.num])
+        self._blockErase(0, 40, 40, 20)
         if self.follow:
-            self.canv.create_text(self._cx(space), self._cy(space+20), text="follow", anchor="nw", fill="#000")
+            self.canv.create_text(self._cx(space), self._cy(space+40), text="follow", anchor="nw", fill="#000")
 
     def erase(self, event):
         x = self._cx(event.x)
@@ -220,15 +231,15 @@ class MathClient():
 
 
     def writeOut(self):
-        x = self._cx(textpos[0])
-        y = self._cy(textpos[1])
-        _writeOut(x, y, self.textaccum)
+        x = self._cx(self.textpos[0])
+        y = self._cy(self.textpos[1])
+        self._writeOut(x, y, self.textaccum)
         self.sock.send('t:{}:{}:{}\n'.format(x, y, self.textaccum).encode('ascii'))
         self.textaccum = ""
         print("\nText written")
 
     def _writeOut(self, x, y, t):
-        self.canv.create_text(x, y, text=t, font="\"Times New Roman\" 18 regular")
+        self.canv.create_text(x, y, text=t, font="\"Times New Roman\" 18")
 
 
     def listenT(self, event):
@@ -247,7 +258,7 @@ class MathClient():
         sys.stdout.flush()
 
 
-    def cmdInput(event):
+    def cmdInput(self, event):
         if self.listen:
             self.listenT(event)
             return
