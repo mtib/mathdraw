@@ -51,7 +51,6 @@ class MathClient():
         self._connect()
         self._tkinter()
 
-
     def _connect(self):
         try:
             # look for env $MATHDRAW
@@ -146,25 +145,8 @@ class MathClient():
         self.tk.title(self.title + " " + self.color[self.num])
         self._update()
 
-
     def release(self, event):
         self.useLast = False
-
-
-    def mleft(self, event):
-        self._scroll('left')
-
-
-    def mright(self, event):
-        self._scroll('right')
-
-
-    def mup(self, event):
-        self._scroll('up')
-
-
-    def mdown(self, event):
-        self._scroll('down')
 
     def _scroll(self, direction):
         dist = 2
@@ -185,7 +167,6 @@ class MathClient():
         self.pos[0] += dx
         self.pos[1] -= dy
         self._update()
-
 
     def _change(self, wx, wy, s):
         pos = "[{}, {}]".format(wx, wy)
@@ -223,12 +204,10 @@ class MathClient():
         self.textpos[0] = event.x
         self.textpos[1] = event.y
 
-
     def enter(self, event):
         if self.listen:
             self.listen = False
             self.writeOut()
-
 
     def writeOut(self):
         x = self._cx(self.textpos[0])
@@ -241,7 +220,6 @@ class MathClient():
     def _writeOut(self, x, y, t):
         self.canv.create_text(x, y, text=t, font="\"Times New Roman\" 18")
 
-
     def listenT(self, event):
         if self.listen:
             self.textaccum += event.char
@@ -251,12 +229,10 @@ class MathClient():
         else:
             self.textaccum = ""
 
-
     def removeT(self, event):
         self.textaccum = self.textaccum[:-1]
         print("\033[1D \033[1D", end="")
         sys.stdout.flush()
-
 
     def cmdInput(self, event):
         if self.listen:
