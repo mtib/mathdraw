@@ -14,14 +14,15 @@ with batteries included.
 # return     =finish text input
 # double lmb =cycle colors
 
-import time
-import threading
 import os, subprocess, sys # Using ps2pdf
-import time # Filename
 import socket
+import string
+import threading
+import time
+import time # Filename
 import tkinter
-from threading import Thread
 from server import PORT, MAX_OFFSET
+from threading import Thread
 
 WIDTH = 1280
 HEIGHT = 720
@@ -42,8 +43,9 @@ class MathClient():
 
         self.textaccum = ""
         self.listen = False
-        self.textpos = [0, 0]
-        self.last = [0, 0]
+        self.textpos = (0, 0)
+        self.last = (0, 0)
+        self.delta = (0, 0)
         self.pos = [0, 0]
         self.useLast = False
         self.follow = False
@@ -109,11 +111,14 @@ class MathClient():
     def start(self):
         tkinter.mainloop()
 
-    def _cx(self, x):
-        return int(self.canv.canvasx(x))
+    def _cx(self, x, f=int):
+        return f(self.canv.canvasx(x))
 
-    def _cy(self, y):
-        return int(self.canv.canvasy(y))
+    def _cy(self, y, f=int):
+        return f(self.canv.canvasy(y))
+
+    def _c(self, event, f=int):
+        return (f(self._cx(event.x, f)), f(self._cy(event.y, f)))
 
     def followToggle(self, event):
         if self.listen:
@@ -123,17 +128,18 @@ class MathClient():
         self._update()
 
     def paint(self, event):
-        x = self._cx(event.x)
-        y = self._cy(event.y)
-        lx = self.last[0]
-        ly = self.last[1]
+        (x, y) = self._c(event, float)
+        (lx, ly) = self.last
         if self.useLast:
+            x = (x + lx+self.delta[0]) / 2.0
+            y = (y + ly+self.delta[1]) / 2.0
             self._paint(lx, ly, x, y, self.num % len(self.color))
-            self.sock.send('d:{}:{}:{}:{}:{}\n'.format(lx, ly, x, y, self.num % len(self.color)).encode('ascii'))
+            self.sock.send('d:{:.0f}:{:.0f}:{:.0f}:{:.0f}:{}\n'.format(lx, ly, x, y, self.num % len(self.color)).encode('ascii'))
+            self.delta = (x-lx, y-ly)
         else:
             self.useLast = True
-        self.last[0] = x
-        self.last[1] = y
+            self.delta = (0, 0)
+        self.last = (x, y)
 
     def _paint(self, x1, y1, x2, y2, n):
         c = self.color[n]
@@ -199,10 +205,10 @@ class MathClient():
         if self.listen:
             self.listenT(event)
             return
-        print("Listening to Text")
+        print("Listening to Text\n -> ", end="")
+        sys.stdout.flush()
         self.listen = True
-        self.textpos[0] = event.x
-        self.textpos[1] = event.y
+        self.textpos = (event.x, event.y)
 
     def enter(self, event):
         if self.listen:
@@ -221,10 +227,10 @@ class MathClient():
         self.canv.create_text(x, y, text=t, font="\"Times New Roman\" 18")
 
     def listenT(self, event):
-        if self.listen:
+        if self.listen and event.char in string.printable:
             self.textaccum += event.char
-            print("\033[1024D",   end="")
-            print(self.textaccum, end="")
+            print("\033[1024D -> \033[34;4m", end="")
+            print(self.textaccum, end="\033[0m")
             sys.stdout.flush()
         else:
             self.textaccum = ""
@@ -245,7 +251,7 @@ class MathClient():
         self._writeOut(x, y, t)
 
     def plotting(self, event):
-        print("plotting not implemented")
+        print("\033[31;1mplotting not implemented\033[0m")
 
     def server_communication(self):
         Thread(target=self._sock_receive).start()
@@ -254,21 +260,30 @@ class MathClient():
         try:
             while True:
                 msg = self.sfile.readline()[:-1]
-                mspl = msg.split(":")
+                if len(msg) == 0:
+                    raise Exception(" <- server down")
+                mstr = msg.split(":")[1:]
+                mdat = []
+                if msg[0] == 't':
+                    mdat = list(map(int, mstr[:-1]))
+                else:
+                    mdat = list(map(int, mstr))
+
                 if msg[0] == 'e':
                     #e:x:y
-                    self._erase(int(mspl[1]), int(mspl[2]))
+                    self._erase(mdat[0], mdat[1])
                 elif msg[0] == 'd':
                     #d:x1:y1:x2:y2:num
-                    self._paint(int(mspl[1]), int(mspl[2]), int(mspl[3]), int(mspl[4]), int(mspl[5]))
+                    self._paint(mdat[0], mdat[1], mdat[2], mdat[3], mdat[4])
                 elif msg[0] == 't':
                     #t:x:y:text
-                    self._writeOut(int(mspl[1]), int(mspl[2]), mspl[3])
+                    self._writeOut(mdat[0], mdat[1], mstr[2])
                 elif msg[0] == 'c':
-                    print("change to [{}, {}] received".format(mspl[1], mspl[2]))
+                    print(" <- change to [{}, {}] received".format(mdat[0], mdat[1]))
                 else:
                     print("unknown server response")
-        except:
+        except Exception as e:
+            print(e)
             print("return client receive")
             return
 

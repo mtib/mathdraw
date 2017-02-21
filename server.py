@@ -33,7 +33,7 @@ class MathServer():
             offset = offset + 1
             if offset > MAX_OFFSET:
                 raise(Exception())
-        self.sock.listen(3)
+        self.sock.listen(0)
 
     def _debug(self, *st):
         if self.debug:
@@ -74,7 +74,7 @@ class MathServer():
             elif msg[0] == 'c':
                 self._debug("change:", msg.split(":"))
             else:
-                self._debug("unknown command \"{}\" by {}".format(msg, addr))
+                self._debug("unknown command \033[35m\"\"\"{}\"\"\"\033[0m by {}".format(msg, addr))
 
     def _mirror(self, msg, conn):
         for c in self.cons:
